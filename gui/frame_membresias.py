@@ -3,16 +3,19 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date
 
-from models.cliente import Cliente
-from models.membresia import Membresia, PLANES_DURACION, PLANES_VALOR
+from controllers.membresia_controller import MembresiaController, PLANES_DURACION, PLANES_VALOR
 
 
 class FrameMembresias(tk.Frame):
+    """Vista para administrar membresías y sus operaciones de ciclo de vida."""
+
     COLUMNAS = ("id_membresia", "cliente", "tipo", "fecha_inicio",
                 "fecha_vencimiento", "estado", "valor")
 
-    def __init__(self, master):
+    def __init__(self, master, controller=None):
+        """Construye la vista e inyecta el controlador de membresías."""
         super().__init__(master, padx=12, pady=12)
+        self.controller = controller or MembresiaController()
         self._id_actual = None
         self._estado_original = None
         self._datos = []
@@ -107,21 +110,24 @@ class FrameMembresias(tk.Frame):
     # --- Datos ---
 
     def _cargar_clientes(self):
+        """Carga en el combo las opciones de cliente disponibles."""
         self._opciones_clientes = []
-        for c in Cliente.listar_todos():
+        for c in self.controller.listar_clientes():
             etiqueta = f"{c.id_cliente} | {c.apellido}, {c.nombre}"
             self._opciones_clientes.append(etiqueta)
         self.combo_cliente.configure(values=self._opciones_clientes)
 
     def _id_cliente_seleccionado(self):
+        """Extrae el identificador de la opción seleccionada en el combo."""
         etiqueta = self.var_cliente.get()
         if not etiqueta:
             raise ValueError("Debe seleccionar un cliente.")
         return int(etiqueta.split(" | ")[0])
 
     def refrescar(self):
+        """Recarga clientes, membresías y filas visibles de la tabla."""
         self._cargar_clientes()
-        membresias = Membresia.listar_todas()
+        membresias = self.controller.listar()
         self._datos = [
             {
                 "id_membresia": str(m.id_membresia),
@@ -138,6 +144,7 @@ class FrameMembresias(tk.Frame):
         self._llenar_tabla()
 
     def _buscar(self):
+        """Filtra las membresías cargadas por el nombre del cliente."""
         texto = self.var_busqueda.get().strip().lower()
         if not texto:
             self.refrescar()
@@ -153,15 +160,12 @@ class FrameMembresias(tk.Frame):
     # --- Acciones ---
 
     def _guardar(self):
+        """Crea o actualiza una membresía mediante el controlador."""
         try:
-            membresia = Membresia(
-                id_membresia=self._id_actual,
-                id_cliente=self._id_cliente_seleccionado(),
-                tipo=self.var_tipo.get(),
-                fecha_inicio=self.var_fecha_inicio.get(),
-                estado=self._estado_original or "Activa",
+            self.controller.guardar(
+                self._id_actual, self._id_cliente_seleccionado(), self.var_tipo.get(),
+                self.var_fecha_inicio.get(), self._estado_original or "Activa",
             )
-            membresia.guardar()
         except ValueError as e:
             messagebox.showerror("Datos inválidos", str(e), parent=self)
             return
@@ -190,6 +194,7 @@ class FrameMembresias(tk.Frame):
                 return
 
     def _renovar(self):
+        """Solicita la renovación de la membresía seleccionada."""
         seleccion = self.tabla.selection()
         if not seleccion:
             messagebox.showinfo("Renovar", "Seleccione una membresía de la tabla.", parent=self)
@@ -201,8 +206,7 @@ class FrameMembresias(tk.Frame):
                                    parent=self):
             return
         try:
-            membresia = Membresia(id_membresia=int(valores["id_membresia"]))
-            membresia.renovar()
+            self.controller.renovar(int(valores["id_membresia"]))
         except ValueError as e:
             messagebox.showerror("Error", str(e), parent=self)
             return
@@ -211,6 +215,7 @@ class FrameMembresias(tk.Frame):
         self.refrescar()
 
     def _cancelar(self):
+        """Solicita la cancelación de la membresía seleccionada."""
         seleccion = self.tabla.selection()
         if not seleccion:
             messagebox.showinfo("Cancelar", "Seleccione una membresía de la tabla.", parent=self)
@@ -221,8 +226,7 @@ class FrameMembresias(tk.Frame):
                                    f"del cliente '{valores['cliente']}'?",
                                    parent=self):
             return
-        membresia = Membresia(id_membresia=int(valores["id_membresia"]))
-        membresia.cancelar()
+        self.controller.cancelar(int(valores["id_membresia"]))
         messagebox.showinfo("Membresías", "Membresía cancelada.", parent=self)
         self._limpiar()
         self.refrescar()
@@ -237,12 +241,12 @@ class FrameMembresias(tk.Frame):
                                    f"¿Eliminar la membresía #{valores['id_membresia']}?",
                                    parent=self):
             return
-        membresia = Membresia(id_membresia=int(valores["id_membresia"]))
-        membresia.eliminar()
+        self.controller.eliminar(int(valores["id_membresia"]))
         self._limpiar()
         self.refrescar()
 
     def _limpiar(self):
+        """Restablece el formulario y el estado de edición."""
         self._id_actual = None
         self._estado_original = None
         self.var_cliente.set("")

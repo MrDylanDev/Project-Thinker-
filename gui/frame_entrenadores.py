@@ -3,14 +3,18 @@ import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from models.entrenador import Entrenador
+from controllers.entrenador_controller import EntrenadorController
 
 
 class FrameEntrenadores(tk.Frame):
+    """Vista Tkinter para administrar entrenadores del gimnasio."""
+
     COLUMNAS = ("id", "nombre", "apellido", "especialidad", "telefono", "email")
 
-    def __init__(self, master):
+    def __init__(self, master, controller=None):
+        """Construye la vista y recibe su controlador mediante inyección."""
         super().__init__(master, padx=12, pady=12)
+        self.controller = controller or EntrenadorController()
         self._id_actual = None
         self._datos = []
         self._construir_busqueda()
@@ -89,7 +93,8 @@ class FrameEntrenadores(tk.Frame):
     # --- Datos ---
 
     def refrescar(self):
-        entrenadores = Entrenador.listar_todos()
+        """Obtiene entrenadores del controlador y actualiza la tabla."""
+        entrenadores = self.controller.listar()
         self._datos = [
             {
                 "id": str(e.id_entrenador),
@@ -104,11 +109,12 @@ class FrameEntrenadores(tk.Frame):
         self._llenar_tabla()
 
     def _buscar(self):
+        """Filtra la tabla por nombre, apellido o especialidad."""
         texto = self.var_busqueda.get().strip()
         if not texto:
             self.refrescar()
             return
-        entrenadores = Entrenador.buscar_por_texto(texto)
+        entrenadores = self.controller.buscar(texto)
         self._datos = [
             {
                 "id": str(e.id_entrenador),
@@ -130,16 +136,12 @@ class FrameEntrenadores(tk.Frame):
     # --- Acciones ---
 
     def _guardar(self):
+        """Valida y delega al controlador la creación o edición."""
         try:
-            entrenador = Entrenador(
-                id_entrenador=self._id_actual,
-                nombre=self.var_nombre.get(),
-                apellido=self.var_apellido.get(),
-                especialidad=self.var_especialidad.get(),
-                telefono=self.var_telefono.get(),
-                email=self.var_email.get(),
+            self.controller.guardar(
+                self._id_actual, self.var_nombre.get(), self.var_apellido.get(),
+                self.var_especialidad.get(), self.var_telefono.get(), self.var_email.get(),
             )
-            entrenador.guardar()
         except ValueError as e:
             messagebox.showerror("Datos inválidos", str(e), parent=self)
             return
@@ -148,6 +150,7 @@ class FrameEntrenadores(tk.Frame):
         self.refrescar()
 
     def _editar(self):
+        """Carga en el formulario los datos del entrenador seleccionado."""
         seleccion = self.tabla.selection()
         if not seleccion:
             messagebox.showinfo("Editar", "Seleccione un entrenador de la tabla.", parent=self)
@@ -161,6 +164,7 @@ class FrameEntrenadores(tk.Frame):
         self.var_email.set(valores["email"])
 
     def _eliminar(self):
+        """Confirma y delega al controlador la eliminación."""
         seleccion = self.tabla.selection()
         if not seleccion:
             messagebox.showinfo("Eliminar", "Seleccione un entrenador de la tabla.", parent=self)
@@ -170,9 +174,8 @@ class FrameEntrenadores(tk.Frame):
                                    f"¿Eliminar al entrenador '{valores['nombre']} {valores['apellido']}'?",
                                    parent=self):
             return
-        entrenador = Entrenador(id_entrenador=int(valores["id"]))
         try:
-            entrenador.eliminar()
+            self.controller.eliminar(int(valores["id"]))
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"No se pudo eliminar:\n{e}", parent=self)
             return
@@ -180,6 +183,7 @@ class FrameEntrenadores(tk.Frame):
         self.refrescar()
 
     def _limpiar(self):
+        """Restablece el formulario y la selección actual."""
         self._id_actual = None
         for var in (self.var_nombre, self.var_apellido, self.var_especialidad,
                     self.var_telefono, self.var_email):

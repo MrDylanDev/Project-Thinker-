@@ -5,11 +5,14 @@ from data.database import conexion
 
 
 class Pago:
+    """Pago asociado a una membresía, con monto, fecha y estado."""
+
     ESTADOS = ("Pagado", "Pendiente")
 
     def __init__(self, id_pago=None, id_membresia=None, monto=0.0,
                  fecha_pago=None, estado="Pendiente",
                  cliente_nombre=None, cliente_apellido=None, tipo_membresia=None):
+        """Crea un pago y normaliza sus valores mediante las propiedades."""
         self._id_pago = id_pago
         self.id_membresia = id_membresia
         self.monto = monto
@@ -106,6 +109,7 @@ class Pago:
         return self._id_pago
 
     def eliminar(self):
+        """Elimina el pago indicado por su identificador."""
         if self._id_pago is None:
             return
         with conexion() as conn:
@@ -116,6 +120,7 @@ class Pago:
 
     @staticmethod
     def _a_fecha(valor):
+        """Convierte una fecha ISO en ``date`` y valida su formato."""
         if isinstance(valor, date):
             return valor
         try:
@@ -125,6 +130,7 @@ class Pago:
 
     @classmethod
     def _desde_fila(cls, fila):
+        """Convierte una fila con JOIN de membresía y cliente en un pago."""
         return cls(
             id_pago=fila["id_pago"],
             id_membresia=fila["id_membresia"],
@@ -138,6 +144,7 @@ class Pago:
 
     @staticmethod
     def _consulta_base():
+        """Devuelve el JOIN común usado por las consultas de pagos."""
         return (
             "SELECT p.*, m.tipo AS tipo_membresia, "
             "c.nombre AS cliente_nombre, c.apellido AS cliente_apellido "
@@ -148,6 +155,7 @@ class Pago:
 
     @classmethod
     def listar_todas(cls):
+        """Obtiene todos los pagos enriquecidos con datos relacionados."""
         with conexion() as conn:
             filas = conn.execute(
                 cls._consulta_base() + " ORDER BY p.fecha_pago DESC, c.apellido"
@@ -156,6 +164,7 @@ class Pago:
 
     @classmethod
     def listar_por_membresia(cls, id_membresia):
+        """Obtiene los pagos asociados a una membresía."""
         with conexion() as conn:
             filas = conn.execute(
                 cls._consulta_base() + " WHERE p.id_membresia = ? ORDER BY p.fecha_pago DESC",
@@ -165,6 +174,7 @@ class Pago:
 
     @classmethod
     def listar_por_cliente(cls, id_cliente):
+        """Obtiene los pagos históricos de un cliente."""
         with conexion() as conn:
             filas = conn.execute(
                 cls._consulta_base() + " WHERE m.id_cliente = ? ORDER BY p.fecha_pago DESC",

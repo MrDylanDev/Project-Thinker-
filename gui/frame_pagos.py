@@ -3,16 +3,19 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date
 
-from models.membresia import Membresia
-from models.pago import Pago
+from controllers.pago_controller import PagoController
 
 
 class FramePagos(tk.Frame):
+    """Vista para registrar, editar y eliminar pagos de membresías."""
+
     COLUMNAS = ("id_pago", "id_membresia", "cliente", "tipo",
                 "fecha_pago", "monto", "estado")
 
-    def __init__(self, master):
+    def __init__(self, master, controller=None):
+        """Construye la vista e inyecta el controlador de pagos."""
         super().__init__(master, padx=12, pady=12)
+        self.controller = controller or PagoController()
         self._id_actual = None
         self._datos = []
         self._opciones_membresias = []
@@ -86,7 +89,7 @@ class FramePagos(tk.Frame):
 
         ttk.Label(form, text="Estado *").grid(row=1, column=2, sticky="w", padx=(0, 6), pady=4)
         self.combo_estado = ttk.Combobox(form, textvariable=self.var_estado,
-                                         values=list(Pago.ESTADOS),
+                                         values=list(PagoController.ESTADOS),
                                          state="readonly", width=14)
         self.combo_estado.grid(row=1, column=3, sticky="w", pady=4)
 
@@ -102,21 +105,24 @@ class FramePagos(tk.Frame):
     # --- Datos ---
 
     def _cargar_membresias(self):
+        """Carga las membresías disponibles en el selector de pagos."""
         self._opciones_membresias = []
-        for m in Membresia.listar_todas():
+        for m in self.controller.listar_membresias():
             etiqueta = f"{m.id_membresia} | {m.nombre_cliente()} - {m.tipo}"
             self._opciones_membresias.append(etiqueta)
         self.combo_membresia.configure(values=self._opciones_membresias)
 
     def _id_membresia_seleccionada(self):
+        """Extrae el identificador de la membresía seleccionada."""
         etiqueta = self.var_membresia.get()
         if not etiqueta:
             raise ValueError("Debe seleccionar una membresía.")
         return int(etiqueta.split(" | ")[0])
 
     def refrescar(self):
+        """Recarga las opciones y los pagos mostrados en la tabla."""
         self._cargar_membresias()
-        pagos = Pago.listar_todas()
+        pagos = self.controller.listar()
         self._datos = [
             {
                 "id_pago": str(p.id_pago),
@@ -147,15 +153,12 @@ class FramePagos(tk.Frame):
     # --- Acciones ---
 
     def _guardar(self):
+        """Crea o actualiza un pago mediante el controlador."""
         try:
-            pago = Pago(
-                id_pago=self._id_actual,
-                id_membresia=self._id_membresia_seleccionada(),
-                monto=self.var_monto.get(),
-                fecha_pago=self.var_fecha_pago.get(),
-                estado=self.var_estado.get(),
+            self.controller.guardar(
+                self._id_actual, self._id_membresia_seleccionada(), self.var_monto.get(),
+                self.var_fecha_pago.get(), self.var_estado.get(),
             )
-            pago.guardar()
         except ValueError as e:
             messagebox.showerror("Datos inválidos", str(e), parent=self)
             return
@@ -193,12 +196,12 @@ class FramePagos(tk.Frame):
                                    f"¿Eliminar el pago #{valores['id_pago']} de "
                                    f"'{valores['cliente']}'?", parent=self):
             return
-        pago = Pago(id_pago=int(valores["id_pago"]))
-        pago.eliminar()
+        self.controller.eliminar(int(valores["id_pago"]))
         self._limpiar()
         self.refrescar()
 
     def _limpiar(self):
+        """Restablece los campos del formulario de pago."""
         self._id_actual = None
         self.var_membresia.set("")
         self.var_monto.set("")

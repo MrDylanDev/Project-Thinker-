@@ -4,8 +4,11 @@ from .persona import Persona
 
 
 class Entrenador(Persona):
+    """Representa un entrenador y encapsula su persistencia en SQLite."""
+
     def __init__(self, id_entrenador=None, nombre="", apellido="", telefono="",
                  email="", especialidad=""):
+        """Crea un entrenador con su especialidad opcional."""
         super().__init__(nombre, apellido, telefono, email)
         self._id_entrenador = id_entrenador
         self.especialidad = especialidad
@@ -46,6 +49,7 @@ class Entrenador(Persona):
         return self._id_entrenador
 
     def eliminar(self):
+        """Elimina el entrenador y los planes relacionados por clave foránea."""
         if self._id_entrenador is None:
             return
         with conexion() as conn:
@@ -56,6 +60,7 @@ class Entrenador(Persona):
 
     @staticmethod
     def _desde_fila(fila):
+        """Convierte una fila SQLite en una instancia de Entrenador."""
         return Entrenador(
             id_entrenador=fila["id_entrenador"],
             nombre=fila["nombre"],
@@ -67,6 +72,7 @@ class Entrenador(Persona):
 
     @staticmethod
     def listar_todos():
+        """Obtiene todos los entrenadores ordenados por apellido y nombre."""
         with conexion() as conn:
             filas = conn.execute(
                 "SELECT * FROM entrenador ORDER BY apellido, nombre"
@@ -75,6 +81,7 @@ class Entrenador(Persona):
 
     @staticmethod
     def buscar_por_id(id_entrenador):
+        """Obtiene un entrenador por ID o devuelve ``None``."""
         with conexion() as conn:
             fila = conn.execute(
                 "SELECT * FROM entrenador WHERE id_entrenador = ?", (id_entrenador,)
@@ -83,6 +90,7 @@ class Entrenador(Persona):
 
     @staticmethod
     def buscar_por_texto(texto):
+        """Busca coincidencias parciales en nombre, apellido o especialidad."""
         texto = f"%{texto.strip()}%"
         with conexion() as conn:
             filas = conn.execute(

@@ -3,15 +3,16 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import date, timedelta
 
-from models.membresia import Membresia
-from models.pago import Pago
-from models.plan_entrenamiento import PlanEntrenamiento
-from models.cliente import Cliente
+from controllers.reporte_controller import ReporteController
 
 
 class FrameReportes(tk.Frame):
-    def __init__(self, master):
+    """Vista de consultas agregadas sobre vencimientos, pagos e historial."""
+
+    def __init__(self, master, controller=None):
+        """Construye las pestañas y recibe el controlador de reportes."""
         super().__init__(master, padx=12, pady=12)
+        self.controller = controller or ReporteController()
         self._construir_tabs()
 
     def _construir_tabs(self):
@@ -23,6 +24,7 @@ class FrameReportes(tk.Frame):
         self._construir_tab_historial()
 
     def refrescar(self):
+        """Actualiza los reportes que no requieren seleccionar un cliente."""
         self._consultar_vencimientos()
         self._consultar_pagos()
 
@@ -47,6 +49,7 @@ class FrameReportes(tk.Frame):
         self.columnas_venc = cols
 
     def _consultar_vencimientos(self):
+        """Consulta membresías vencidas o próximas a vencer."""
         try:
             dias = int(self.var_dias.get())
             if dias <= 0:
@@ -54,7 +57,7 @@ class FrameReportes(tk.Frame):
         except ValueError:
             messagebox.showerror("Valor inválido", "Ingrese un número de días válido.", parent=self)
             return
-        membresias = Membresia.listar_proximas_a_vencer(dias) + Membresia.listar_vencidas()
+        membresias = self.controller.membresias_por_vencer(dias)
         hoy = date.today()
         datos = []
         for m in membresias:
@@ -82,7 +85,8 @@ class FrameReportes(tk.Frame):
         self.columnas_pagos = cols
 
     def _consultar_pagos(self):
-        datos = Pago.clientes_con_pagos_pendientes()
+        """Consulta y muestra los pagos pendientes de los clientes."""
+        datos = self.controller.pagos_pendientes()
         filas = [
             (
                 f["id_pago"],
@@ -132,19 +136,22 @@ class FrameReportes(tk.Frame):
         self.columnas_hist_plan = cols_plan
 
     def _cargar_clientes_historial(self):
-        clientes = Cliente.listar_todos()
+        """Carga clientes en el selector de la pestaña de historial."""
+        clientes = self.controller.listar_clientes()
         opciones = [f"{c.id_cliente} | {c.apellido}, {c.nombre}" for c in clientes]
         self.combo_cliente.configure(values=opciones)
         return opciones
 
     def _consultar_historial(self):
+        """Muestra membresías, pagos y planes del cliente seleccionado."""
         etiqueta = self.var_cliente_hist.get()
         if not etiqueta:
             messagebox.showinfo("Historial", "Seleccione un cliente.", parent=self)
             return
         id_cliente = int(etiqueta.split(" | ")[0])
 
-        membresias = Membresia.listar_por_cliente(id_cliente)
+        historial = self.controller.historial_cliente(id_cliente)
+        membresias = historial["membresias"]
         self._llenar_tree(self.tree_hist_mem, self.columnas_hist_mem, [
             (
                 m.id_membresia,
@@ -157,7 +164,7 @@ class FrameReportes(tk.Frame):
             for m in membresias
         ])
 
-        pagos = Pago.listar_por_cliente(id_cliente)
+        pagos = historial["pagos"]
         self._llenar_tree(self.tree_hist_pag, self.columnas_hist_pag, [
             (
                 p.id_pago,
@@ -168,7 +175,7 @@ class FrameReportes(tk.Frame):
             for p in pagos
         ])
 
-        planes = PlanEntrenamiento.listar_por_cliente(id_cliente)
+        planes = historial["planes"]
         self._llenar_tree(self.tree_hist_plan, self.columnas_hist_plan, [
             (
                 p.id_plan,

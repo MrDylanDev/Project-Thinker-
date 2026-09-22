@@ -5,10 +5,13 @@ NIVELES = ("Principiante", "Intermedio", "Avanzado")
 
 
 class PlanEntrenamiento:
+    """Plan que vincula un cliente con un entrenador."""
+
     def __init__(self, id_plan=None, nombre="", descripcion="", nivel="Principiante",
                  duracion_semanas=4, id_entrenador=None, id_cliente=None,
                  nombre_entrenador=None, apellido_entrenador=None,
                  nombre_cliente=None, apellido_cliente=None):
+        """Crea un plan y valida sus campos mediante propiedades."""
         self._id_plan = id_plan
         self.nombre = nombre
         self.descripcion = descripcion
@@ -145,6 +148,7 @@ class PlanEntrenamiento:
         return self._id_plan
 
     def eliminar(self):
+        """Elimina el plan indicado por su identificador."""
         if self._id_plan is None:
             return
         with conexion() as conn:
@@ -157,6 +161,7 @@ class PlanEntrenamiento:
 
     @classmethod
     def _desde_fila(cls, fila):
+        """Convierte una fila con JOIN en una instancia de plan."""
         return cls(
             id_plan=fila["id_plan"],
             nombre=fila["nombre"],
@@ -173,6 +178,7 @@ class PlanEntrenamiento:
 
     @staticmethod
     def _consulta_base():
+        """Devuelve el JOIN común de planes, clientes y entrenadores."""
         return (
             "SELECT p.*, e.nombre AS entrenador_nombre, e.apellido AS entrenador_apellido, "
             "c.nombre AS cliente_nombre, c.apellido AS cliente_apellido "
@@ -183,6 +189,7 @@ class PlanEntrenamiento:
 
     @classmethod
     def listar_todos(cls):
+        """Obtiene todos los planes con los nombres relacionados."""
         with conexion() as conn:
             filas = conn.execute(
                 cls._consulta_base() + " ORDER BY c.apellido, p.nombre"

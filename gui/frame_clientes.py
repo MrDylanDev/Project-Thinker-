@@ -3,14 +3,18 @@ import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from models.cliente import Cliente
+from controllers.cliente_controller import ClienteController
 
 
 class FrameClientes(tk.Frame):
+    """Vista Tkinter para listar, buscar, crear, editar y eliminar clientes."""
+
     COLUMNAS = ("id", "documento", "nombre", "apellido", "telefono", "email", "fecha_registro")
 
-    def __init__(self, master):
+    def __init__(self, master, controller=None):
+        """Construye la vista y recibe su controlador mediante inyección."""
         super().__init__(master, padx=12, pady=12)
+        self.controller = controller or ClienteController()
         self._id_actual = None
         self._datos = []
         self._construir_busqueda()
@@ -93,7 +97,8 @@ class FrameClientes(tk.Frame):
     # --- Datos ---
 
     def refrescar(self):
-        clientes = Cliente.listar_todos()
+        """Obtiene clientes del controlador y actualiza la tabla."""
+        clientes = self.controller.listar()
         self._datos = [
             {
                 "id": str(c.id_cliente),
@@ -109,11 +114,12 @@ class FrameClientes(tk.Frame):
         self._llenar_tabla()
 
     def _buscar(self):
+        """Filtra la tabla usando el texto introducido por el usuario."""
         texto = self.var_busqueda.get().strip()
         if not texto:
             self.refrescar()
             return
-        clientes = Cliente.buscar_por_texto(texto)
+        clientes = self.controller.buscar(texto)
         self._datos = [
             {
                 "id": str(c.id_cliente),
@@ -136,16 +142,12 @@ class FrameClientes(tk.Frame):
     # --- Acciones ---
 
     def _guardar(self):
+        """Valida y delega al controlador la creación o edición del cliente."""
         try:
-            cliente = Cliente(
-                id_cliente=self._id_actual,
-                nombre=self.var_nombre.get(),
-                apellido=self.var_apellido.get(),
-                documento=self.var_documento.get(),
-                telefono=self.var_telefono.get(),
-                email=self.var_email.get(),
+            self.controller.guardar(
+                self._id_actual, self.var_nombre.get(), self.var_apellido.get(),
+                self.var_documento.get(), self.var_telefono.get(), self.var_email.get(),
             )
-            cliente.guardar()
         except ValueError as e:
             messagebox.showerror("Datos inválidos", str(e), parent=self)
             return
@@ -154,6 +156,7 @@ class FrameClientes(tk.Frame):
         self.refrescar()
 
     def _editar(self):
+        """Carga en el formulario los datos del cliente seleccionado."""
         seleccion = self.tabla.selection()
         if not seleccion:
             messagebox.showinfo("Editar", "Seleccione un cliente de la tabla.", parent=self)
@@ -167,6 +170,7 @@ class FrameClientes(tk.Frame):
         self.var_email.set(valores["email"])
 
     def _eliminar(self):
+        """Confirma y delega al controlador la eliminación del cliente."""
         seleccion = self.tabla.selection()
         if not seleccion:
             messagebox.showinfo("Eliminar", "Seleccione un cliente de la tabla.", parent=self)
@@ -175,9 +179,8 @@ class FrameClientes(tk.Frame):
         if not messagebox.askyesno("Confirmar", f"¿Eliminar al cliente '{valores['nombre']} {valores['apellido']}'?",
                                    parent=self):
             return
-        cliente = Cliente(id_cliente=int(valores["id"]))
         try:
-            cliente.eliminar()
+            self.controller.eliminar(int(valores["id"]))
         except sqlite3.Error as e:
             messagebox.showerror("Error", f"No se pudo eliminar:\n{e}", parent=self)
             return
@@ -185,6 +188,7 @@ class FrameClientes(tk.Frame):
         self.refrescar()
 
     def _limpiar(self):
+        """Restablece el formulario y elimina la selección de la tabla."""
         self._id_actual = None
         for var in (self.var_nombre, self.var_apellido, self.var_documento,
                     self.var_telefono, self.var_email):

@@ -19,9 +19,12 @@ PLANES_VALOR = {
 
 
 class Membresia:
+    """Membresía de un cliente con fechas, valor y estado calculado."""
+
     def __init__(self, id_membresia=None, id_cliente=None, tipo="Mensual",
                  fecha_inicio=None, fecha_vencimiento=None, estado="Activa",
                  cliente_nombre=None, cliente_apellido=None):
+        """Crea una membresía y calcula su vencimiento si no fue proporcionado."""
         self._id_membresia = id_membresia
         self.id_cliente = id_cliente
         self.tipo = tipo
@@ -160,6 +163,7 @@ class Membresia:
         self.guardar()
 
     def eliminar(self):
+        """Elimina la membresía y los pagos dependientes por clave foránea."""
         if self._id_membresia is None:
             return
         with conexion() as conn:
@@ -172,6 +176,7 @@ class Membresia:
 
     @staticmethod
     def _a_fecha(valor):
+        """Convierte una fecha ISO en ``date`` y valida su formato."""
         if isinstance(valor, date):
             return valor
         try:
@@ -181,6 +186,7 @@ class Membresia:
 
     @classmethod
     def _desde_fila(cls, fila):
+        """Convierte una fila con JOIN de cliente en una membresía."""
         return cls(
             id_membresia=fila["id_membresia"],
             id_cliente=fila["id_cliente"],
@@ -201,6 +207,7 @@ class Membresia:
 
     @classmethod
     def listar_todas(cls):
+        """Obtiene todas las membresías junto con el nombre del cliente."""
         with conexion() as conn:
             filas = conn.execute(
                 cls._consulta_base() + " ORDER BY m.fecha_vencimiento, c.apellido"
@@ -209,6 +216,7 @@ class Membresia:
 
     @classmethod
     def listar_por_cliente(cls, id_cliente):
+        """Obtiene las membresías históricas de un cliente."""
         with conexion() as conn:
             filas = conn.execute(
                 cls._consulta_base() + " WHERE m.id_cliente = ? ORDER BY m.fecha_vencimiento DESC",
@@ -232,6 +240,7 @@ class Membresia:
 
     @classmethod
     def listar_vencidas(cls):
+        """Obtiene membresías vencidas que no fueron canceladas."""
         with conexion() as conn:
             filas = conn.execute(
                 cls._consulta_base() + """

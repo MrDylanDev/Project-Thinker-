@@ -2,17 +2,19 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from models.cliente import Cliente
-from models.entrenador import Entrenador
-from models.plan_entrenamiento import PlanEntrenamiento, NIVELES
+from controllers.plan_controller import PlanController, NIVELES
 
 
 class FramePlanes(tk.Frame):
+    """Vista para vincular clientes con entrenadores mediante planes."""
+
     COLUMNAS = ("id_plan", "nombre", "nivel", "duracion", "descripcion",
                 "entrenador", "cliente")
 
-    def __init__(self, master):
+    def __init__(self, master, controller=None):
+        """Construye la vista e inyecta el controlador de planes."""
         super().__init__(master, padx=12, pady=12)
+        self.controller = controller or PlanController()
         self._id_actual = None
         self._datos = []
         self._opciones_clientes = []
@@ -113,26 +115,29 @@ class FramePlanes(tk.Frame):
     # --- Datos ---
 
     def _cargar_opciones(self):
+        """Carga clientes y entrenadores en los selectores del formulario."""
         self._opciones_clientes = []
-        for c in Cliente.listar_todos():
+        for c in self.controller.listar_clientes():
             etiqueta = f"{c.id_cliente} | {c.apellido}, {c.nombre}"
             self._opciones_clientes.append(etiqueta)
         self.combo_cliente.configure(values=self._opciones_clientes)
 
         self._opciones_entrenadores = []
-        for e in Entrenador.listar_todos():
+        for e in self.controller.listar_entrenadores():
             etiqueta = f"{e.id_entrenador} | {e.apellido}, {e.nombre}"
             self._opciones_entrenadores.append(etiqueta)
         self.combo_entrenador.configure(values=self._opciones_entrenadores)
 
     def _id_desde_etiqueta(self, etiqueta):
+        """Convierte una opción con formato ``id | descripción`` en un entero."""
         if not etiqueta:
             raise ValueError("Debe completar la selección.")
         return int(etiqueta.split(" | ")[0])
 
     def refrescar(self):
+        """Recarga opciones y planes visibles en la tabla."""
         self._cargar_opciones()
-        planes = PlanEntrenamiento.listar_todos()
+        planes = self.controller.listar()
         self._datos = [
             {
                 "id_plan": str(p.id_plan),
@@ -166,17 +171,14 @@ class FramePlanes(tk.Frame):
     # --- Acciones ---
 
     def _guardar(self):
+        """Crea o actualiza un plan mediante el controlador."""
         try:
-            plan = PlanEntrenamiento(
-                id_plan=self._id_actual,
-                nombre=self.var_nombre.get(),
-                descripcion=self.var_descripcion.get(),
-                nivel=self.var_nivel.get(),
-                duracion_semanas=self.var_duracion.get(),
-                id_entrenador=self._id_desde_etiqueta(self.var_entrenador.get()),
-                id_cliente=self._id_desde_etiqueta(self.var_cliente.get()),
+            self.controller.guardar(
+                self._id_actual, self.var_nombre.get(), self.var_descripcion.get(),
+                self.var_nivel.get(), self.var_duracion.get(),
+                self._id_desde_etiqueta(self.var_entrenador.get()),
+                self._id_desde_etiqueta(self.var_cliente.get()),
             )
-            plan.guardar()
         except ValueError as e:
             messagebox.showerror("Datos inválidos", str(e), parent=self)
             return
@@ -219,12 +221,12 @@ class FramePlanes(tk.Frame):
         if not messagebox.askyesno("Confirmar",
                                    f"¿Eliminar el plan '{valores['nombre']}'?", parent=self):
             return
-        plan = PlanEntrenamiento(id_plan=int(valores["id_plan"]))
-        plan.eliminar()
+        self.controller.eliminar(int(valores["id_plan"]))
         self._limpiar()
         self.refrescar()
 
     def _limpiar(self):
+        """Restablece el formulario y la selección de la tabla."""
         self._id_actual = None
         for var in (self.var_nombre, self.var_descripcion, self.var_entrenador,
                     self.var_cliente):

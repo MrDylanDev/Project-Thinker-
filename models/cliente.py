@@ -6,8 +6,11 @@ from .persona import Persona
 
 
 class Cliente(Persona):
+    """Representa un cliente y encapsula su persistencia en SQLite."""
+
     def __init__(self, id_cliente=None, nombre="", apellido="", telefono="",
                  email="", documento="", fecha_registro=None):
+        """Crea un cliente; la fecha por defecto es la fecha actual."""
         super().__init__(nombre, apellido, telefono, email)
         self._id_cliente = id_cliente
         self.documento = documento
@@ -61,6 +64,7 @@ class Cliente(Persona):
         return self._id_cliente
 
     def eliminar(self):
+        """Elimina el cliente y sus relaciones dependientes mediante FK."""
         if self._id_cliente is None:
             return
         with conexion() as conn:
@@ -69,6 +73,7 @@ class Cliente(Persona):
 
     @staticmethod
     def _desde_fila(fila):
+        """Convierte una fila SQLite en una instancia de Cliente."""
         return Cliente(
             id_cliente=fila["id_cliente"],
             nombre=fila["nombre"],
@@ -81,6 +86,7 @@ class Cliente(Persona):
 
     @staticmethod
     def listar_todos():
+        """Obtiene todos los clientes ordenados por apellido y nombre."""
         with conexion() as conn:
             filas = conn.execute(
                 "SELECT * FROM cliente ORDER BY apellido, nombre"
@@ -89,6 +95,7 @@ class Cliente(Persona):
 
     @staticmethod
     def buscar_por_id(id_cliente):
+        """Obtiene un cliente por ID o devuelve ``None`` si no existe."""
         with conexion() as conn:
             fila = conn.execute(
                 "SELECT * FROM cliente WHERE id_cliente = ?", (id_cliente,)
@@ -97,6 +104,7 @@ class Cliente(Persona):
 
     @staticmethod
     def buscar_por_texto(texto):
+        """Busca coincidencias parciales en nombre, apellido o documento."""
         texto = f"%{texto.strip()}%"
         with conexion() as conn:
             filas = conn.execute(
